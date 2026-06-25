@@ -166,7 +166,7 @@ class March7thPlugin(Star):
         content = quote.get("content", "")
         source = quote.get("source", "")
         
-        result = " **三月七**"
+        result = "**三月七**"
         if source:
             result += " · *" + source + "*"
         if is_custom:
@@ -231,7 +231,7 @@ class March7thPlugin(Star):
         # 检查是否已存在
         for q in self.all_quotes:
             if q.get("content") == new_content:
-                yield event.plain_result("⚠️ 这条语句已经存在啦！")
+                yield event.plain_result("这条语句已经存在啦！")
                 return
 
         new_quote = {
@@ -244,12 +244,12 @@ class March7thPlugin(Star):
 
         if self._save_custom_quotes():
             yield event.plain_result(
-                "✅ 语句添加成功！\n\n"
+                "语句添加成功！\n\n"
                 + self._format_quote(new_quote, is_custom=True) + "\n\n"
                 + f"当前共有 {len(self.all_quotes)} 条语句（自定义 {len(self.custom_quotes)} 条）"
             )
         else:
-            yield event.plain_result("❌ 语句添加失败，请检查文件权限。")
+            yield event.plain_result("语句添加失败，请检查文件权限。")
 
     @march7th_group.command("删除")
     async def delete_quote(self, event: AstrMessageEvent):
@@ -280,24 +280,24 @@ class March7thPlugin(Star):
         deleted_count = original_count - len(self.custom_quotes)
 
         if deleted_count == 0:
-            yield event.plain_result("⚠️ 未找到包含「" + keyword + "」的自定义语句。\n注意：默认语句无法删除。")
+            yield event.plain_result("未找到包含「" + keyword + "」的自定义语句。\n注意：默认语句无法删除。")
             return
 
         self.all_quotes = self.default_quotes + self.custom_quotes
 
         if self._save_custom_quotes():
             yield event.plain_result(
-                "✅ 已删除 " + str(deleted_count) + " 条包含「" + keyword + "」的语句。\n"
+                "已删除 " + str(deleted_count) + " 条包含「" + keyword + "」的语句。\n"
                 + f"当前共有 {len(self.all_quotes)} 条语句（自定义 {len(self.custom_quotes)} 条）"
             )
         else:
-            yield event.plain_result("❌ 删除失败，请检查文件权限。")
+            yield event.plain_result("删除失败，请检查文件权限。")
 
     @march7th_group.command("列表")
     async def list_quotes(self, event: AstrMessageEvent, page: int = 1):
         '''列出所有自定义语句。用法: /三月七 列表 [页码]'''
         if not self.custom_quotes:
-            yield event.plain_result(" 暂无自定义语句。\n使用 /三月七 添加 来添加你的第一条语句吧！")
+            yield event.plain_result("暂无自定义语句。\n使用 /三月七 添加 来添加你的第一条语句吧！")
             return
 
         per_page = 10
@@ -312,7 +312,7 @@ class March7thPlugin(Star):
         end = start + per_page
         page_quotes = self.custom_quotes[start:end]
 
-        result = " 自定义语句列表（第 " + str(page) + "/" + str(total_pages) + " 页，共 " + str(len(self.custom_quotes)) + " 条）\n"
+        result = "自定义语句列表（第 " + str(page) + "/" + str(total_pages) + " 页，共 " + str(len(self.custom_quotes)) + " 条）\n"
         result += "-" * 30 + "\n"
 
         for i, quote in enumerate(page_quotes, start=start + 1):
@@ -338,10 +338,10 @@ class March7thPlugin(Star):
             src = quote.get("source", "未标注") or "未标注"
             source_count[src] = source_count.get(src, 0) + 1
 
-        # 按数量排序
-        sorted_sources = sorted(source_count.items(), key=lambda x: x[1], reverse=True)
+        # 按数量降序，数量相同按来源名升序（保证稳定性）
+        sorted_sources = sorted(source_count.items(), key=lambda x: (-x[1], x[0]))
 
-        result = " 三月七语句统计\n"
+        result = "三月七语句统计\n"
         result += "-" * 30 + "\n"
         result += "总语句数: " + str(len(self.all_quotes)) + "\n"
         result += "  - 默认语句: " + str(len(self.default_quotes)) + "\n"
@@ -349,8 +349,7 @@ class March7thPlugin(Star):
 
         result += "来源分布:\n"
         for src, count in sorted_sources:
-            bar = "█" * min(count, 20)
-            result += "  " + src + ": " + str(count) + "条 " + bar + "\n"
+            result += "  " + src + ": " + str(count) + "条\n"
 
         yield event.plain_result(result)
 
@@ -358,7 +357,7 @@ class March7thPlugin(Star):
     async def help_quotes(self, event: AstrMessageEvent):
         '''查看三月七语句插件帮助信息'''
         help_lines = [
-            " 三月七语句插件",
+            "三月七语句插件",
             "",
             "指令列表:",
             "------------------------------",
