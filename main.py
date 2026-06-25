@@ -6,12 +6,12 @@ import json
 import os
 
 
-@register("march7th_quotes", "YourName", "三月七金句插件", "1.0.0", "https://github.com/yourname/astrbot_plugin_march7th")
+@register("march7th_quotes", "YourName", "三月七语句插件", "1.0.0", "https://github.com/yourname/astrbot_plugin_march7th")
 class March7thPlugin(Star):
     def __init__(self, context: Context, config: dict = None):
         super().__init__(context)
         
-        # 三月七默认金句库
+        # 三月七默认语句库
         self.default_quotes = [
             {"content": "我的过去或许不在从前，而是在我的未来里，所以我一定会一站站走下去，哪怕有一天没有列车。", "source": "剧情台词"},
             {"content": "你好，我是三月七，今天也是充满希望的一天！", "source": "角色语音"},
@@ -132,37 +132,37 @@ class March7thPlugin(Star):
             {"content": "请多关照啦，开拓者！", "source": "角色语音"},
         ]
 
-        # 用户自定义金句文件路径
+        # 用户自定义语句文件路径
         self.custom_quotes_file = os.path.join(os.path.dirname(__file__), "custom_quotes.json")
         self.custom_quotes = self._load_custom_quotes()
 
         # 合并默认和用户自定义
         self.all_quotes = self.default_quotes + self.custom_quotes
-        logger.info(f"三月七金句插件加载完成，共 {len(self.all_quotes)} 条金句（默认 {len(self.default_quotes)} 条，自定义 {len(self.custom_quotes)} 条）")
+        logger.info(f"三月七语句插件加载完成，共 {len(self.all_quotes)} 条语句（默认 {len(self.default_quotes)} 条，自定义 {len(self.custom_quotes)} 条）")
 
     def _load_custom_quotes(self):
-        """加载用户自定义金句"""
+        """加载用户自定义语句"""
         if os.path.exists(self.custom_quotes_file):
             try:
                 with open(self.custom_quotes_file, "r", encoding="utf-8") as f:
                     return json.load(f)
             except Exception as e:
-                logger.error(f"加载自定义金句失败: {e}")
+                logger.error(f"加载自定义语句失败: {e}")
                 return []
         return []
 
     def _save_custom_quotes(self):
-        """保存用户自定义金句"""
+        """保存用户自定义语句"""
         try:
             with open(self.custom_quotes_file, "w", encoding="utf-8") as f:
                 json.dump(self.custom_quotes, f, ensure_ascii=False, indent=2)
             return True
         except Exception as e:
-            logger.error(f"保存自定义金句失败: {e}")
+            logger.error(f"保存自定义语句失败: {e}")
             return False
 
     def _format_quote(self, quote, is_custom=False):
-        """格式化金句输出"""
+        """格式化语句输出"""
         content = quote.get("content", "")
         source = quote.get("source", "")
         
@@ -174,38 +174,42 @@ class March7thPlugin(Star):
         result += "\n\n" + content
         return result
 
-    @filter.command("三月七")
+    @filter.command_group("三月七")
+    def march7th_group(self):
+        '''三月七语句插件指令组'''
+        pass
+
+    @march7th_group.command("语句")
     async def march7th_quote(self, event: AstrMessageEvent):
-        '''随机输出一条三月七的金句'''
+        '''随机输出一条三月七的语句'''
         if not self.all_quotes:
-            yield event.plain_result("暂无金句，请先使用 /添加三月七金句 添加一些吧！")
+            yield event.plain_result("暂无语句，请先使用 /三月七 添加 添加一些吧！")
             return
 
         quote = random.choice(self.all_quotes)
         is_custom = quote in self.custom_quotes
         yield event.plain_result(self._format_quote(quote, is_custom))
 
-    @filter.command("添加三月七金句")
+    @march7th_group.command("添加")
     async def add_quote(self, event: AstrMessageEvent):
-        '''添加一条自定义三月七金句。用法: /添加三月七金句 金句内容 [来源]'''
+        '''添加一条自定义三月七语句。用法: /三月七 添加 语句内容 [来源]'''
         # 从消息文本解析参数
         message = event.message_str
         # 去掉命令前缀
-        if message.startswith("/添加三月七金句"):
-            args_str = message[len("/添加三月七金句"):].strip()
+        if message.startswith("/三月七 添加"):
+            args_str = message[len("/三月七 添加"):].strip()
         else:
-            args_str = message[len("添加三月七金句"):].strip()
+            args_str = message[len("三月七 添加"):].strip()
 
         if not args_str or not args_str.strip():
             yield event.plain_result(
-                "金句内容不能为空！\n"
-                "用法: /添加三月七金句 金句内容 [来源]\n"
-                "示例: /添加三月七金句 \"三月七最可爱啦！\" 角色语音"
+                "语句内容不能为空！\n"
+                "用法: /三月七 添加 语句内容 [来源]\n"
+                "示例: /三月七 添加 \"三月七最可爱啦！\" 角色语音"
             )
             return
 
-        # 解析参数：第一个引号内或第一个空格前是内容，后面是来源
-        # 支持引号包裹的内容
+        # 解析参数：支持引号包裹的内容
         if args_str.startswith('"') or args_str.startswith("'"):
             quote_char = args_str[0]
             end_idx = args_str.find(quote_char, 1)
@@ -221,13 +225,13 @@ class March7thPlugin(Star):
             new_source = parts[1].strip() if len(parts) > 1 else ""
 
         if not new_content:
-            yield event.plain_result("金句内容不能为空！")
+            yield event.plain_result("语句内容不能为空！")
             return
 
         # 检查是否已存在
         for q in self.all_quotes:
             if q.get("content") == new_content:
-                yield event.plain_result("⚠️ 这条金句已经存在啦！")
+                yield event.plain_result("⚠️ 这条语句已经存在啦！")
                 return
 
         new_quote = {
@@ -240,34 +244,34 @@ class March7thPlugin(Star):
 
         if self._save_custom_quotes():
             yield event.plain_result(
-                "✅ 金句添加成功！\n\n"
+                "✅ 语句添加成功！\n\n"
                 + self._format_quote(new_quote, is_custom=True) + "\n\n"
-                + f"当前共有 {len(self.all_quotes)} 条金句（自定义 {len(self.custom_quotes)} 条）"
+                + f"当前共有 {len(self.all_quotes)} 条语句（自定义 {len(self.custom_quotes)} 条）"
             )
         else:
-            yield event.plain_result("❌ 金句添加失败，请检查文件权限。")
+            yield event.plain_result("❌ 语句添加失败，请检查文件权限。")
 
-    @filter.command("删除三月七金句")
+    @march7th_group.command("删除")
     async def delete_quote(self, event: AstrMessageEvent):
-        '''删除包含指定关键词的自定义金句。用法: /删除三月七金句 关键词'''
+        '''删除包含指定关键词的自定义语句。用法: /三月七 删除 关键词'''
         # 从消息文本解析参数
         message = event.message_str
-        if message.startswith("/删除三月七金句"):
-            keyword = message[len("/删除三月七金句"):].strip()
+        if message.startswith("/三月七 删除"):
+            keyword = message[len("/三月七 删除"):].strip()
         else:
-            keyword = message[len("删除三月七金句"):].strip()
+            keyword = message[len("三月七 删除"):].strip()
 
         if not keyword or not keyword.strip():
             yield event.plain_result(
                 "关键词不能为空！\n"
-                "用法: /删除三月七金句 关键词\n"
-                "示例: /删除三月七金句 开拓者"
+                "用法: /三月七 删除 关键词\n"
+                "示例: /三月七 删除 开拓者"
             )
             return
 
         keyword = keyword.strip()
 
-        # 只能删除自定义金句
+        # 只能删除自定义语句
         original_count = len(self.custom_quotes)
         self.custom_quotes = [
             q for q in self.custom_quotes 
@@ -276,24 +280,24 @@ class March7thPlugin(Star):
         deleted_count = original_count - len(self.custom_quotes)
 
         if deleted_count == 0:
-            yield event.plain_result("⚠️ 未找到包含「" + keyword + "」的自定义金句。\n注意：默认金句无法删除。")
+            yield event.plain_result("⚠️ 未找到包含「" + keyword + "」的自定义语句。\n注意：默认语句无法删除。")
             return
 
         self.all_quotes = self.default_quotes + self.custom_quotes
 
         if self._save_custom_quotes():
             yield event.plain_result(
-                "✅ 已删除 " + str(deleted_count) + " 条包含「" + keyword + "」的金句。\n"
-                + f"当前共有 {len(self.all_quotes)} 条金句（自定义 {len(self.custom_quotes)} 条）"
+                "✅ 已删除 " + str(deleted_count) + " 条包含「" + keyword + "」的语句。\n"
+                + f"当前共有 {len(self.all_quotes)} 条语句（自定义 {len(self.custom_quotes)} 条）"
             )
         else:
             yield event.plain_result("❌ 删除失败，请检查文件权限。")
 
-    @filter.command("三月七金句列表")
+    @march7th_group.command("列表")
     async def list_quotes(self, event: AstrMessageEvent, page: int = 1):
-        '''列出所有自定义金句。用法: /三月七金句列表 [页码]'''
+        '''列出所有自定义语句。用法: /三月七 列表 [页码]'''
         if not self.custom_quotes:
-            yield event.plain_result("📷 暂无自定义金句。\n使用 /添加三月七金句 来添加你的第一条金句吧！")
+            yield event.plain_result("📷 暂无自定义语句。\n使用 /三月七 添加 来添加你的第一条语句吧！")
             return
 
         per_page = 10
@@ -308,7 +312,7 @@ class March7thPlugin(Star):
         end = start + per_page
         page_quotes = self.custom_quotes[start:end]
 
-        result = "📷 自定义金句列表（第 " + str(page) + "/" + str(total_pages) + " 页，共 " + str(len(self.custom_quotes)) + " 条）\n"
+        result = "📷 自定义语句列表（第 " + str(page) + "/" + str(total_pages) + " 页，共 " + str(len(self.custom_quotes)) + " 条）\n"
         result += "-" * 30 + "\n"
 
         for i, quote in enumerate(page_quotes, start=start + 1):
@@ -321,14 +325,14 @@ class March7thPlugin(Star):
             result += str(i) + "." + source_tag + " " + content + "\n"
 
         if total_pages > 1:
-            result += "\n使用 /三月七金句列表 " + str(page + 1 if page < total_pages else 1) + " 翻页"
+            result += "\n使用 /三月七 列表 " + str(page + 1 if page < total_pages else 1) + " 翻页"
 
         yield event.plain_result(result)
 
-    @filter.command("三月七金句统计")
+    @march7th_group.command("统计")
     async def stats_quotes(self, event: AstrMessageEvent):
-        '''查看金句统计信息'''
-        # 统计各来源金句数量
+        '''查看语句统计信息'''
+        # 统计各来源语句数量
         source_count = {}
         for quote in self.all_quotes:
             src = quote.get("source", "未标注") or "未标注"
@@ -337,11 +341,11 @@ class March7thPlugin(Star):
         # 按数量排序
         sorted_sources = sorted(source_count.items(), key=lambda x: x[1], reverse=True)
 
-        result = "📷 三月七金句统计\n"
+        result = "📷 三月七语句统计\n"
         result += "-" * 30 + "\n"
-        result += "总金句数: " + str(len(self.all_quotes)) + "\n"
-        result += "  - 默认金句: " + str(len(self.default_quotes)) + "\n"
-        result += "  - 自定义金句: " + str(len(self.custom_quotes)) + "\n\n"
+        result += "总语句数: " + str(len(self.all_quotes)) + "\n"
+        result += "  - 默认语句: " + str(len(self.default_quotes)) + "\n"
+        result += "  - 自定义语句: " + str(len(self.custom_quotes)) + "\n\n"
 
         result += "来源分布:\n"
         for src, count in sorted_sources:
@@ -350,43 +354,43 @@ class March7thPlugin(Star):
 
         yield event.plain_result(result)
 
-    @filter.command("三月七帮助")
+    @march7th_group.command("帮助")
     async def help_quotes(self, event: AstrMessageEvent):
-        '''查看三月七金句插件帮助信息'''
+        '''查看三月七语句插件帮助信息'''
         help_lines = [
-            "📷 三月七金句插件",
+            "📷 三月七语句插件",
             "",
             "指令列表:",
             "------------------------------",
-            "/三月七 - 随机输出一条三月七金句",
-            "/添加三月七金句 <内容> [来源] - 添加自定义金句",
-            "/删除三月七金句 <关键词> - 删除包含关键词的自定义金句",
-            "/三月七金句列表 [页码] - 查看自定义金句列表",
-            "/三月七金句统计 - 查看金句统计信息",
-            "/三月七帮助 - 显示此帮助信息",
+            "/三月七 语句 - 随机输出一条三月七语句",
+            "/三月七 添加 <内容> [来源] - 添加自定义语句",
+            "/三月七 删除 <关键词> - 删除包含关键词的自定义语句",
+            "/三月七 列表 [页码] - 查看自定义语句列表",
+            "/三月七 统计 - 查看语句统计信息",
+            "/三月七 帮助 - 显示此帮助信息",
             "",
             "使用示例:",
             "------------------------------",
-            "/三月七",
-            "-> 随机输出一条三月七金句",
+            "/三月七 语句",
+            "-> 随机输出一条三月七语句",
             "",
-            '/添加三月七金句 "三月七最可爱啦！" 角色语音',
-            "-> 添加一条带来源的金句",
+            '/三月七 添加 "三月七最可爱啦！" 角色语音',
+            "-> 添加一条带来源的语句",
             "",
-            "/添加三月七金句 开拓者是最好的伙伴",
-            "-> 添加一条无来源的金句",
+            "/三月七 添加 开拓者是最好的伙伴",
+            "-> 添加一条无来源的语句",
             "",
-            "/删除三月七金句 开拓者",
-            "-> 删除所有包含\"开拓者\"的自定义金句",
+            "/三月七 删除 开拓者",
+            "-> 删除所有包含\"开拓者\"的自定义语句",
             "",
-            "/三月七金句列表 2",
-            "-> 查看第2页自定义金句",
+            "/三月七 列表 2",
+            "-> 查看第2页自定义语句",
             "",
             "注意事项:",
             "------------------------------",
-            "- 默认金句无法删除，只能删除自定义金句",
-            "- 自定义金句保存在插件目录的 custom_quotes.json 中",
-            "- 添加金句时内容必填，来源可选",
+            "- 默认语句无法删除，只能删除自定义语句",
+            "- 自定义语句保存在插件目录的 custom_quotes.json 中",
+            "- 添加语句时内容必填，来源可选",
         ]
         help_text = "\n".join(help_lines)
         yield event.plain_result(help_text)
@@ -394,4 +398,4 @@ class March7thPlugin(Star):
     async def terminate(self):
         '''插件卸载时保存数据'''
         self._save_custom_quotes()
-        logger.info("三月七金句插件已卸载，数据已保存。")
+        logger.info("三月七语句插件已卸载，数据已保存。")
