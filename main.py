@@ -166,7 +166,7 @@ class March7thPlugin(Star):
         content = quote.get("content", "")
         source = quote.get("source", "")
         
-        result = "📷 **三月七**"
+        result = " **三月七**"
         if source:
             result += " · *" + source + "*"
         if is_custom:
@@ -297,7 +297,7 @@ class March7thPlugin(Star):
     async def list_quotes(self, event: AstrMessageEvent, page: int = 1):
         '''列出所有自定义语句。用法: /三月七 列表 [页码]'''
         if not self.custom_quotes:
-            yield event.plain_result("📷 暂无自定义语句。\n使用 /三月七 添加 来添加你的第一条语句吧！")
+            yield event.plain_result(" 暂无自定义语句。\n使用 /三月七 添加 来添加你的第一条语句吧！")
             return
 
         per_page = 10
@@ -312,7 +312,7 @@ class March7thPlugin(Star):
         end = start + per_page
         page_quotes = self.custom_quotes[start:end]
 
-        result = "📷 自定义语句列表（第 " + str(page) + "/" + str(total_pages) + " 页，共 " + str(len(self.custom_quotes)) + " 条）\n"
+        result = " 自定义语句列表（第 " + str(page) + "/" + str(total_pages) + " 页，共 " + str(len(self.custom_quotes)) + " 条）\n"
         result += "-" * 30 + "\n"
 
         for i, quote in enumerate(page_quotes, start=start + 1):
@@ -341,7 +341,7 @@ class March7thPlugin(Star):
         # 按数量排序
         sorted_sources = sorted(source_count.items(), key=lambda x: x[1], reverse=True)
 
-        result = "📷 三月七语句统计\n"
+        result = " 三月七语句统计\n"
         result += "-" * 30 + "\n"
         result += "总语句数: " + str(len(self.all_quotes)) + "\n"
         result += "  - 默认语句: " + str(len(self.default_quotes)) + "\n"
@@ -358,7 +358,7 @@ class March7thPlugin(Star):
     async def help_quotes(self, event: AstrMessageEvent):
         '''查看三月七语句插件帮助信息'''
         help_lines = [
-            "📷 三月七语句插件",
+            " 三月七语句插件",
             "",
             "指令列表:",
             "------------------------------",
