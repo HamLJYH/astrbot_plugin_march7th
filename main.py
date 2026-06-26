@@ -1,15 +1,57 @@
-from astrbot.api.event import filter, AstrMessageEvent, MessageEventResult
+"""
+AstrBot 三月七语句插件 v1.2.0
+
+功能描述：
+- 随机输出《崩坏·星穹铁道》三月七经典台词
+- 支持用户自定义添加、删除、管理语句
+- 用户级防刷屏与群聊日限机制
+
+作者: YourName
+版本: 1.2.0
+日期: 2026-06-26
+"""
+
+# 标准库
+import os
+import json
+import time
+import random
+import functools
+from typing import Dict, Any, AsyncGenerator, Tuple
+
+# 第三方库
+from astrbot.api.event import filter, AstrMessageEvent
 from astrbot.api.star import Context, Star, register
 from astrbot.api import logger
-import random
-import json
-import os
-import time
+
+__version__ = "1.2.0"
+
+# 常量
+MAX_CONTENT_LENGTH = 500
+
+
+def handle_errors(func):
+    """统一错误处理装饰器"""
+    @functools.wraps(func)
+    async def wrapper(self, event: AstrMessageEvent, *args, **kwargs) -> AsyncGenerator[Any, None]:
+        try:
+            async for result in func(self, event, *args, **kwargs):
+                yield result
+        except ValueError as e:
+            logger.warning(f"[{func.__name__}] 参数错误: {e}")
+            yield event.plain_result(f"参数错误: {e}")
+        except PermissionError:
+            logger.error(f"[{func.__name__}] 权限不足")
+            yield event.plain_result("权限不足，请检查文件权限")
+        except Exception as e:
+            logger.error(f"[{func.__name__}] 执行失败: {e}", exc_info=True)
+            yield event.plain_result("操作失败，请稍后重试")
+    return wrapper
 
 
 @register("march7th_quotes", "YourName", "三月七语句插件", "1.2.0", "https://github.com/yourname/astrbot_plugin_march7th")
-class March7thPlugin(Star):
-    def __init__(self, context: Context, config: dict = None):
+class March7thQuotesPlugin(Star):
+    def __init__(self, context: Context, config: Dict[str, Any] = None):
         super().__init__(context)
         
         # 读取配置
@@ -19,11 +61,11 @@ class March7thPlugin(Star):
         self.group_daily_limit_enabled = self.config.get("group_daily_limit_enabled", True)
         self.group_daily_limit = self.config.get("group_daily_limit", 50)
         
-        # 用户防刷屏记录：{user_id: last_trigger_time}
-        self.user_cooldown = {}
+        # 防刷屏记录
+        self.user_cooldown: Dict[str, float] = {}
         
         # 群聊每日触发记录：{group_id: {"count": int, "date": str}}
-        self.group_daily_count = {}
+        self.group_daily_count: Dict[str, Dict[str, Any]] = {}
         
         # 三月七默认语句库
         self.default_quotes = [
@@ -154,7 +196,7 @@ class March7thPlugin(Star):
         self.all_quotes = self.default_quotes + self.custom_quotes
         logger.info(f"三月七语句插件加载完成，共 {len(self.all_quotes)} 条语句（默认 {len(self.default_quotes)} 条，自定义 {len(self.custom_quotes)} 条）")
 
-    def _load_custom_quotes(self):
+    def _load_custom_quotes(self) -> list:
         """加载用户自定义语句"""
         if os.path.exists(self.custom_quotes_file):
             try:
@@ -165,7 +207,7 @@ class March7thPlugin(Star):
                 return []
         return []
 
-    def _save_custom_quotes(self):
+    def _save_custom_quotes(self) -> bool:
         """保存用户自定义语句"""
         try:
             with open(self.custom_quotes_file, "w", encoding="utf-8") as f:
@@ -175,8 +217,17 @@ class March7thPlugin(Star):
             logger.error(f"保存自定义语句失败: {e}")
             return False
 
-    def _format_quote(self, quote, is_custom=False):
-        """格式化语句输出"""
+    def _format_quote(self, quote: Dict[str, str], is_custom: bool = False) -> str:
+        """格式化语句输出
+
+        Args:
+            quote: 语句字典，包含 content 和 source
+            is_custom: 是否为自定义语句
+
+        Returns:
+            格式化后的字符串
+
+        """
         content = quote.get("content", "")
         source = quote.get("source", "")
         
@@ -192,10 +243,10 @@ class March7thPlugin(Star):
         """获取今天的日期字符串"""
         return time.strftime("%Y-%m-%d", time.localtime())
 
-    def _clean_expired_records(self):
-        """清理过期的用户记录（保留最近一天）"""
+    def _clean_expired_records(self) -> None:
+        """清理过期的用户记录（保留最近24小时）"""
         current_time = time.time()
-        expire_time = current_time -_time - 86400  # 24小时 = 86400秒
+        expire_time = current_time - 86400
         
         # 清理用户冷却记录
         expired_users = [
@@ -214,11 +265,14 @@ class March7thPlugin(Star):
         for gid in expired_groups:
             del self.group_daily_count[gid]
 
-    def _check_user_spam(self, user_id: str) -> tuple:
+    def _check_user_spam(self, user_id: str) -> Tuple[bool, str]:
         """检查用户是否触发个人防刷屏机制
-        
+
+        Args:
+            user_id: 用户ID
+
         Returns:
-            (bool, str): (是否允许触发, 提示信息)
+            (是否允许触发, 提示信息)
         """
         if not self.anti_spam_enabled:
             return True, ""
@@ -235,11 +289,14 @@ class March7thPlugin(Star):
         self.user_cooldown[user_id] = current_time
         return True, ""
 
-    def _check_group_limit(self, group_id: str) -> tuple:
+    def _check_group_limit(self, group_id: str) -> Tuple[bool, str]:
         """检查群聊是否达到每日触发上限
-        
+
+        Args:
+            group_id: 群聊ID
+
         Returns:
-            (bool, str): (是否允许触发, 提示信息)
+            (是否允许触发, 提示信息)
         """
         if not self.group_daily_limit_enabled:
             return True, ""
@@ -264,11 +321,26 @@ class March7thPlugin(Star):
         group_data["count"] += 1
         return True, ""
 
+    def _validate_content(self, content: str) -> None:
+        """验证语句内容
+
+        Args:
+            content: 待验证的内容
+
+        Raises:
+            ValueError: 内容不合法时抛出
+        """
+        if not content or not content.strip():
+            raise ValueError("内容不能为空")
+        if len(content) > MAX_CONTENT_LENGTH:
+            raise ValueError(f"内容过长，最多 {MAX_CONTENT_LENGTH} 字符")
+
     @filter.command_group("三月七")
     def march7th_group(self):
         '''三月七语句插件指令组'''
         pass
 
+    @handle_errors
     @march7th_group.command("语句")
     async def march7th_quote(self, event: AstrMessageEvent):
         '''随机输出一条三月七的语句'''
@@ -295,6 +367,7 @@ class March7thPlugin(Star):
         is_custom = quote in self.custom_quotes
         yield event.plain_result(self._format_quote(quote, is_custom))
 
+    @handle_errors
     @march7th_group.command("添加")
     async def add_quote(self, event: AstrMessageEvent):
         '''添加一条自定义三月七语句。用法: /三月七 添加 语句内容 [来源]'''
@@ -329,9 +402,8 @@ class March7thPlugin(Star):
             new_content = parts[0].strip()
             new_source = parts[1].strip() if len(parts) > 1 else ""
 
-        if not new_content:
-            yield event.plain_result("语句内容不能为空！")
-            return
+        # 验证内容
+        self._validate_content(new_content)
 
         # 检查是否已存在
         for q in self.all_quotes:
@@ -356,6 +428,7 @@ class March7thPlugin(Star):
         else:
             yield event.plain_result("语句添加失败，请检查文件权限。")
 
+    @handle_errors
     @march7th_group.command("删除")
     async def delete_quote(self, event: AstrMessageEvent):
         '''删除包含指定关键词的自定义语句。用法: /三月七 删除 关键词'''
@@ -398,6 +471,7 @@ class March7thPlugin(Star):
         else:
             yield event.plain_result("删除失败，请检查文件权限。")
 
+    @handle_errors
     @march7th_group.command("列表")
     async def list_quotes(self, event: AstrMessageEvent, page: int = 1):
         '''列出所有自定义语句。用法: /三月七 列表 [页码]'''
@@ -434,11 +508,12 @@ class March7thPlugin(Star):
 
         yield event.plain_result(result)
 
+    @handle_errors
     @march7th_group.command("统计")
     async def stats_quotes(self, event: AstrMessageEvent):
         '''查看语句统计信息'''
         # 统计各来源语句数量
-        source_count = {}
+        source_count: Dict[str, int] = {}
         for quote in self.all_quotes:
             src = quote.get("source", "未标注") or "未标注"
             source_count[src] = source_count.get(src, 0) + 1
@@ -458,6 +533,7 @@ class March7thPlugin(Star):
 
         yield event.plain_result(result)
 
+    @handle_errors
     @march7th_group.command("帮助")
     async def help_quotes(self, event: AstrMessageEvent):
         '''查看三月七语句插件帮助信息'''
