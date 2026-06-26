@@ -7,7 +7,7 @@ import os
 import time
 
 
-@register("march7th_quotes", "YourName", "三月七语句插件", "1.1.0", "https://github.com/yourname/astrbot_plugin_march7th")
+@register("march7th_quotes", "YourName", "三月七语句插件", "1.2.0", "https://github.com/yourname/astrbot_plugin_march7th")
 class March7thPlugin(Star):
     def __init__(self, context: Context, config: dict = None):
         super().__init__(context)
@@ -16,9 +16,14 @@ class March7thPlugin(Star):
         self.config = config or {}
         self.anti_spam_enabled = self.config.get("anti_spam_enabled", True)
         self.anti_spam_interval = self.config.get("anti_spam_interval", 10)
+        self.group_daily_limit_enabled = self.config.get("group_daily_limit_enabled", True)
+        self.group_daily_limit = self.config.get("group_daily_limit", 50)
         
-        # 防刷屏记录：{user_id: last_trigger_time}
+        # 用户防刷屏记录：{user_id: last_trigger_time}
         self.user_cooldown = {}
+        
+        # 群聊每日触发记录：{group_id: {"count": int, "date": str}}
+        self.group_daily_count = {}
         
         # 三月七默认语句库
         self.default_quotes = [
@@ -183,14 +188,42 @@ class March7thPlugin(Star):
         result += "\n\n" + content
         return result
 
-    def _check_spam(self, user_id: str) -> tuple:
-        """检查用户是否触发防刷屏机制
+    def _get_today_str(self) -> str:
+        """获取今天的日期字符串"""
+        return time.strftime("%Y-%m-%d", time.localtime())
+
+    def _clean_expired_records(self):
+        """清理过期的用户记录（保留最近一天）"""
+        current_time = time.time()
+        expire_time = current_time -_time - 86400  # 24小时 = 86400秒
+        
+        # 清理用户冷却记录
+        expired_users = [
+            uid for uid, t in self.user_cooldown.items() 
+            if t < expire_time
+        ]
+        for uid in expired_users:
+            del self.user_cooldown[uid]
+        
+        # 清理群聊计数记录（非今天的）
+        today = self._get_today_str()
+        expired_groups = [
+            gid for gid, data in self.group_daily_count.items() 
+            if data.get("date") != today
+        ]
+        for gid in expired_groups:
+            del self.group_daily_count[gid]
+
+    def _check_user_spam(self, user_id: str) -> tuple:
+        """检查用户是否触发个人防刷屏机制
         
         Returns:
             (bool, str): (是否允许触发, 提示信息)
         """
         if not self.anti_spam_enabled:
             return True, ""
+        
+        self._clean_expired_records()
         
         current_time = time.time()
         last_time = self.user_cooldown.get(user_id, 0)
@@ -202,6 +235,35 @@ class March7thPlugin(Star):
         self.user_cooldown[user_id] = current_time
         return True, ""
 
+    def _check_group_limit(self, group_id: str) -> tuple:
+        """检查群聊是否达到每日触发上限
+        
+        Returns:
+            (bool, str): (是否允许触发, 提示信息)
+        """
+        if not self.group_daily_limit_enabled:
+            return True, ""
+        
+        self._clean_expired_records()
+        
+        today = self._get_today_str()
+        
+        if group_id not in self.group_daily_count:
+            self.group_daily_count[group_id] = {"count": 0, "date": today}
+        
+        group_data = self.group_daily_count[group_id]
+        
+        # 如果日期不是今天，重置计数
+        if group_data.get("date") != today:
+            group_data = {"count": 0, "date": today}
+            self.group_daily_count[group_id] = group_data
+        
+        if group_data["count"] >= self.group_daily_limit:
+            return False, f"本群今天的三月七语句次数已经用完啦！明天再来吧~（上限: {self.group_daily_limit}次/天）"
+        
+        group_data["count"] += 1
+        return True, ""
+
     @filter.command_group("三月七")
     def march7th_group(self):
         '''三月七语句插件指令组'''
@@ -210,9 +272,17 @@ class March7thPlugin(Star):
     @march7th_group.command("语句")
     async def march7th_quote(self, event: AstrMessageEvent):
         '''随机输出一条三月七的语句'''
-        # 防刷屏检查
         user_id = str(event.get_sender_id())
-        allowed, msg = self._check_spam(user_id)
+        group_id = str(event.get_group_id()) if event.get_group_id() else "private_" + user_id
+        
+        # 个人防刷屏检查
+        allowed, msg = self._check_user_spam(user_id)
+        if not allowed:
+            yield event.plain_result(msg)
+            return
+        
+        # 群聊每日限制检查
+        allowed, msg = self._check_group_limit(group_id)
         if not allowed:
             yield event.plain_result(msg)
             return
@@ -391,15 +461,18 @@ class March7thPlugin(Star):
     @march7th_group.command("帮助")
     async def help_quotes(self, event: AstrMessageEvent):
         '''查看三月七语句插件帮助信息'''
-        # 防刷屏状态
-        spam_status = "已开启" if self.anti_spam_enabled else "已关闭"
-        spam_interval = f"{self.anti_spam_interval}秒" if self.anti_spam_enabled else "N/A"
+        # 配置状态
+        user_spam_status = "已开启" if self.anti_spam_enabled else "已关闭"
+        user_spam_interval = f"{self.anti_spam_interval}秒" if self.anti_spam_enabled else "N/A"
+        group_limit_status = "已开启" if self.group_daily_limit_enabled else "已关闭"
+        group_limit = f"{self.group_daily_limit}次/天" if self.group_daily_limit_enabled else "N/A"
         
         help_lines = [
             "三月七语句插件",
             "",
             "配置信息:",
-            "  防刷屏: " + spam_status + "（间隔: " + spam_interval + "）",
+            "  用户防刷屏: " + user_spam_status + "（间隔: " + user_spam_interval + "）",
+            "  群聊日限: " + group_limit_status + "（上限: " + group_limit + "）",
             "",
             "指令列表:",
             "------------------------------",
@@ -432,7 +505,7 @@ class March7thPlugin(Star):
             "- 默认语句无法删除，只能删除自定义语句",
             "- 自定义语句保存在插件目录的 custom_quotes.json 中",
             "- 添加语句时内容必填，来源可选",
-            "- 防刷屏可在 AstrBot 控制台配置",
+            "- 防刷屏配置可在 AstrBot 控制台修改",
         ]
         help_text = "\n".join(help_lines)
         yield event.plain_result(help_text)
