@@ -1,6 +1,6 @@
 {
     "anti_spam_enabled": {
-        "description": "是否开启防刷屏机制",
+        "description": "是否开启用户防刷屏机制",
         "type": "bool",
         "hint": "开启后，同一用户在指定时间间隔内只能触发一次随机语句",
         "default": true
