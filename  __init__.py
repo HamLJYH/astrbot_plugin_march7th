@@ -1,1 +1,1 @@
-from .main import March7thPlugin
+from .main import March7thQuotesPlugin
