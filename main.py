@@ -4,12 +4,21 @@ from astrbot.api import logger
 import random
 import json
 import os
+import time
 
 
-@register("march7th_quotes", "YourName", "三月七语句插件", "1.0.0", "https://github.com/yourname/astrbot_plugin_march7th")
+@register("march7th_quotes", "YourName", "三月七语句插件", "1.1.0", "https://github.com/yourname/astrbot_plugin_march7th")
 class March7thPlugin(Star):
     def __init__(self, context: Context, config: dict = None):
         super().__init__(context)
+        
+        # 读取配置
+        self.config = config or {}
+        self.anti_spam_enabled = self.config.get("anti_spam_enabled", True)
+        self.anti_spam_interval = self.config.get("anti_spam_interval", 10)
+        
+        # 防刷屏记录：{user_id: last_trigger_time}
+        self.user_cooldown = {}
         
         # 三月七默认语句库
         self.default_quotes = [
@@ -174,6 +183,25 @@ class March7thPlugin(Star):
         result += "\n\n" + content
         return result
 
+    def _check_spam(self, user_id: str) -> tuple:
+        """检查用户是否触发防刷屏机制
+        
+        Returns:
+            (bool, str): (是否允许触发, 提示信息)
+        """
+        if not self.anti_spam_enabled:
+            return True, ""
+        
+        current_time = time.time()
+        last_time = self.user_cooldown.get(user_id, 0)
+        
+        if current_time - last_time < self.anti_spam_interval:
+            remaining = int(self.anti_spam_interval - (current_time - last_time))
+            return False, f"触发太快了啦！请 {remaining} 秒后再试~"
+        
+        self.user_cooldown[user_id] = current_time
+        return True, ""
+
     @filter.command_group("三月七")
     def march7th_group(self):
         '''三月七语句插件指令组'''
@@ -182,6 +210,13 @@ class March7thPlugin(Star):
     @march7th_group.command("语句")
     async def march7th_quote(self, event: AstrMessageEvent):
         '''随机输出一条三月七的语句'''
+        # 防刷屏检查
+        user_id = str(event.get_sender_id())
+        allowed, msg = self._check_spam(user_id)
+        if not allowed:
+            yield event.plain_result(msg)
+            return
+        
         if not self.all_quotes:
             yield event.plain_result("暂无语句，请先使用 /三月七 添加 添加一些吧！")
             return
@@ -356,8 +391,15 @@ class March7thPlugin(Star):
     @march7th_group.command("帮助")
     async def help_quotes(self, event: AstrMessageEvent):
         '''查看三月七语句插件帮助信息'''
+        # 防刷屏状态
+        spam_status = "已开启" if self.anti_spam_enabled else "已关闭"
+        spam_interval = f"{self.anti_spam_interval}秒" if self.anti_spam_enabled else "N/A"
+        
         help_lines = [
             "三月七语句插件",
+            "",
+            "配置信息:",
+            "  防刷屏: " + spam_status + "（间隔: " + spam_interval + "）",
             "",
             "指令列表:",
             "------------------------------",
@@ -390,6 +432,7 @@ class March7thPlugin(Star):
             "- 默认语句无法删除，只能删除自定义语句",
             "- 自定义语句保存在插件目录的 custom_quotes.json 中",
             "- 添加语句时内容必填，来源可选",
+            "- 防刷屏可在 AstrBot 控制台配置",
         ]
         help_text = "\n".join(help_lines)
         yield event.plain_result(help_text)
