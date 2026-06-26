@@ -1,0 +1,14 @@
+{
+    "anti_spam_enabled": {
+        "description": "是否开启防刷屏机制",
+        "type": "bool",
+        "hint": "开启后，同一用户在指定时间间隔内只能触发一次随机语句",
+        "default": true
+    },
+    "anti_spam_interval": {
+        "description": "防刷屏时间间隔（秒）",
+        "type": "int",
+        "hint": "同一用户在此时间间隔内重复触发将被拒绝",
+        "default": 10
+    }
+}
