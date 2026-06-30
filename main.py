@@ -580,7 +580,7 @@ class March7thQuotesPlugin(Star):
             "- 默认语句无法删除，只能删除自定义语句",
             "- 自定义语句保存在插件目录的 custom_quotes.json 中",
             "- 添加语句时内容必填，来源可选",
-            "- 防刷屏配置可在 AstrBot 控制台修改",
+            "- 防刷屏配置可在 AstrBot 插件配置中修改",
         ]
         help_text = "\n".join(help_lines)
         yield event.plain_result(help_text)
