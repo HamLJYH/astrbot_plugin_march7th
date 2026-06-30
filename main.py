@@ -117,7 +117,7 @@ class March7thQuotesPlugin(Star):
             {"content": "哎呀，头发乱了，等我整理一下。", "source": "角色语音"},
             {"content": "我的弓箭可是很贵的，小心别弄坏了。", "source": "角色语音"},
             {"content": "战斗什么的，我最在行了！", "source": "角色语音"},
-            {"content": "冰霜之箭，穿透黑暗！", "source": "角色语音"},
+            {"content": "我是谁，我来自哪里……", "source": "角色故事"},
             {"content": "守护列车，守护大家，这就是我的使命！", "source": "剧情台词"},
             {"content": "就算没有星神的力量，我也要保护重要的人！", "source": "剧情台词"},
             {"content": "三月七，永不放弃！", "source": "角色语音"},
