@@ -71,6 +71,7 @@ class March7thQuotesPlugin(Star):
         self.default_quotes = [
             {"content": "我的过去或许不在从前，而是在我的未来里，所以我一定会一站站走下去，哪怕有一天没有列车。", "source": "剧情台词"},
             {"content": "你好，我是三月七，今天也是充满希望的一天！", "source": "角色语音"},
+            {"content": "嗯…自己是谁，应当由自己去探寻……", "source": "角色故事"},
             {"content": "我是三月七，如你所见，是一位美少女！", "source": "角色语音"},
             {"content": "本姑娘就是三月七，如假包换！", "source": "角色语音"},
             {"content": "哎呀，别这么严肃嘛，笑一个！", "source": "角色语音"},
